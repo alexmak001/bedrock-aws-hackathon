@@ -5,7 +5,7 @@ import botocore.config
 from dotenv import load_dotenv
 from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from pypdf import PdfReader
-
+import streamlit as st
 # loading environment variables
 load_dotenv()
 # configure Bedrock client
@@ -60,7 +60,7 @@ def summarizer(prompt_data) -> str:
     # returning the final string to the end user
     return answer
 
-
+@st.cache_data
 def Chunk_and_Summarize(uploaded_file) -> str:
     """
     This function takes in the path to the file that was just uploaded through the streamlit app.
