@@ -1,38 +1,49 @@
 import streamlit as st
-from query_against_openSearch import answer_query
+from pathlib import Path
+import os
+from doc_summarizer import Chunk_and_Summarize
+import time
+from dotenv import load_dotenv
 
-# Header/Title of streamlit app
-st.title(f""":rainbow[RAG with Amazon OpenSearch Serverless Vector Search]""")
+# load environment variables
+load_dotenv()
+# title of the streamlit app
+st.title(f""":rainbow[Long Document Summarization with Amazon Bedrock]""")
 
-# configuring values for session state
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-# writing the message that is stored in session state
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-# adding some special effects from the UI perspective
-st.balloons()
-# evaluating st.chat_input and determining if a question has been input
-if question := st.chat_input("Ask about your data stored in Amazon OpenSearch Serverless Vector Search"):
-    # with the user icon, write the question to the front end
-    with st.chat_message("user"):
-        st.markdown(question)
-    # append the question and the role (user) as a message to the session state
-    st.session_state.messages.append({"role": "user",
-                                      "content": question})
-    # respond as the assistant with the answer
-    with st.chat_message("assistant"):
-        # making sure there are no messages present when generating the answer
-        message_placeholder = st.empty()
-        # putting a spinning icon to show that the query is in progress
-        with st.status("Determining the best possible answer!", expanded=False) as status:
-            # passing the question into the OpenSearch search function, which later invokes the llm
-            answer = answer_query(question)
-            # writing the answer to the front end
-            message_placeholder.markdown(f"{answer}")
-            # showing a completion message to the front end
-            status.update(label="Question Answered...", state="complete", expanded=False)
-    # appending the results to the session state
-    st.session_state.messages.append({"role": "assistant",
-                                      "content": answer})
+# default container that houses the document upload field
+with st.container():
+    # header that is shown on the web UI
+    st.header('Single File Upload')
+    # the file upload field, the specific ui element that allows you to upload the file
+    File = st.file_uploader('Upload a file', type=["pdf"], key="new")
+    # when a file is uploaded it saves the file to the directory, creates a path, and invokes the
+    # Chunk_and_Summarize Function
+    if File is not None:
+        # determine the path to temporarily save the PDF file that was uploaded
+        save_folder = "temp"
+        # create a posix path of save_folder and the file name
+        save_path = Path(save_folder, File.name)
+        # write the uploaded PDF to the save_folder you specified
+        with open(save_path, mode='wb') as w:
+            w.write(File.getvalue())
+        # once the save path exists...
+        if save_path.exists():
+            # write a success message saying the file has been successfully saved
+            st.success(f'File {File.name} is successfully saved!')
+            # creates a timer to time the length of the summarization task and starts the timer
+            start = time.time()
+            # running the summarization task, and outputting the results to the front end
+            st.write(Chunk_and_Summarize(save_path))
+            # ending the timer
+            end = time.time()
+            # using the timer, we calculate the minutes and seconds it took to perform the summarization task
+            seconds = int(((end - start) % 60))
+            minutes = int((end - start) // 60)
+            # string to highlight the amount of time taken to complete the summarization task
+            total_time = f"""Time taken to generate a summary:
+            Minutes: {minutes} Seconds: {round(seconds, 2)}"""
+            # sidebar is created to display the total time taken to complete the summarization task
+            with st.sidebar:
+                st.header(total_time)
+            # removing the PDF that was temporarily saved to perform the summarization task
+            os.remove(save_path)
